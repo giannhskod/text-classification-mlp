@@ -129,3 +129,5 @@ pip-selfcheck.json
 # Data Folder
 data/
 
+# Models Folder
+models/
