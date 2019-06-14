@@ -3,6 +3,7 @@ import itertools
 import pandas as pd
 import numpy as np
 import nltk
+import pickle
 from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
@@ -11,8 +12,13 @@ from gensim.models.wrappers import FastText
 
 from app import DATA_DIR
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 DATASET_FILENAME = 'stack-overflow-data.csv'
 EMBEDDINGS_FILENAME = 'cc.en.300.bin'
+MINIMIZED_EMBEDDINGS_FILENAME = 'minimized_embeddings'
 
 def text_centroid(text, model):
     text_vec = []
@@ -31,6 +37,68 @@ def text_centroid(text, model):
                 pass
 
     return np.asarray(text_vec) / counter
+
+
+def minimize_embeddings(input_data, emb_model, text_field, save=True):
+    """
+    Finds the embeddings of the words that exist in the <input_data>. If <save> is enabled
+    then it stores it in a pickle file.
+
+    :param input_data (pandas.DataFrame): The dataframe of the loaded Dataset,
+    :param emb_model (Word2Vec): the loaded vocabulary's embeddings.
+    :param text_field (str): The key name of the column that the test is contained,
+    :param save (bool):
+    :return (dic):
+
+    """
+    distinct_words = []
+    for text in input_data[text_field]:
+        sent_text = nltk.sent_tokenize(text)
+        for sentence in sent_text:
+            sent_tokenized = nltk.word_tokenize(sentence)
+            distinct_words += list(set(sent_tokenized))
+    distinct_words = list(set(distinct_words))
+    minimized = {word: emb_model[word] for word in distinct_words if word in emb_model}
+    if save:
+        minimized_path = os.path.join(DATA_DIR, MINIMIZED_EMBEDDINGS_FILENAME)
+        with open(minimized_path, 'wb') as minimized_pickle:
+            pickle.dump(minimized, minimized_pickle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    return minimized
+
+
+def load_embeddings(input_data, text_field, minimized=False):
+    """
+    Reads and Loads the embeddings. If partial is enabled then it returns only the embedding for
+    the words that is only used into the given <input_data>.
+    :param input_data (pandas.DataFrame): The dataframe of the loaded Dataset,
+    :param text_field' (str): The key name of the column that the test is contained,
+    :param minimized (bool): If true, then load the minimized version of the embeddings,
+
+    :return (dict or Word2Vec): It returns a dictionary with the minified version of the embeddings
+                                of the vec or the whole embeddings object (Word2Vec).
+
+    """
+
+    def load_embeddings():
+        embeddings_path = os.path.join(DATA_DIR, EMBEDDINGS_FILENAME)
+        return FastText.load_fasttext_format(embeddings_path)
+
+    if minimized:
+        try:
+
+            minimized_path = os.path.join(DATA_DIR, MINIMIZED_EMBEDDINGS_FILENAME)
+            with open(minimized_path, 'rb') as minimized_pickle:
+                embeddings = pickle.load(minimized_pickle)
+
+        except Exception as e:
+            logger.exception(e)
+            embeddings = minimize_embeddings(input_data, load_embeddings(), text_field)
+
+    else:
+        embeddings = load_embeddings()
+
+    return embeddings
 
 
 def load_dataset(tags_categories='__all__'):
@@ -53,12 +121,21 @@ def load_dataset(tags_categories='__all__'):
     return dataset_df if tags_categories == '__all__' else dataset_df.loc[dataset_df['tags'].isin(tags_categories)]
 
 
-def preprocess_data(input_data, label_field, text_field, input_ins='as_tf_idf', **kwargs):
+def preprocess_data(input_data, label_field, text_field, input_ins='as_tf_idf', embeddings=None, **kwargs):
     """
     Generates the train-test data for the model based on the given arguments.
 
     Args:
         'input_data' (pandas.DataFrame): The dataset Dataframe that will be splitted in train-test data.
+
+        'label_field' (str): The key name of the column that the dataset's classes are contained,
+
+        'text_field' (str): The key name of the column that the test is contained,
+
+        'embeddings' (dict or Word2Vec): It is required when precessing as 'as_centroids'.
+                                         Represents either a key:value pair of word: word2vec vectors representation,
+                                         or the whole Word2Vec instance model
+
         'input_ins' (str): If 'as_tf_idf' is given then it generates tf-idf vectors per text row
                      If 'as_centroids' is given then it generates centroids per text row
     It returns a dictionary with the below structure:
@@ -72,6 +149,7 @@ def preprocess_data(input_data, label_field, text_field, input_ins='as_tf_idf', 
     """
     assert all([label_field, text_field]), \
         "Fields <label_field>, <text_field> cannot be None or empty"
+
     train, test = train_test_split(input_data, test_size=0.3, random_state=1596)
 
     x_train = np.array(list(itertools.chain.from_iterable(train[[text_field]].values.astype('U').tolist())))
@@ -80,18 +158,10 @@ def preprocess_data(input_data, label_field, text_field, input_ins='as_tf_idf', 
     if input_ins == 'as_tf_idf':
         vectorizer = TfidfVectorizer(ngram_range=(1, 2), max_features=5000, sublinear_tf=True,
                                      stop_words=stopwords.words('english'))
-
         x_train = vectorizer.fit_transform(x_train).toarray()
         x_test = vectorizer.transform(x_test).toarray()
 
     else:
-
-        embeddings = kwargs.get('embeddings')
-        if not embeddings:
-            import ipdb
-            ipdb.set_trace()
-            embeddings_path = os.path.join(DATA_DIR, EMBEDDINGS_FILENAME)
-            embeddings = FastText.load_fasttext_format(embeddings_path)
         x_train = np.array(list(map(lambda text: text_centroid(text, embeddings), x_train)))
         x_train = np.stack(x_train, axis=0)
         x_test = np.array(list(map(lambda text: text_centroid(text, embeddings), x_test)))
