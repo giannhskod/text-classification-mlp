@@ -24,3 +24,13 @@ of the models and the visualization of their performance.
         * !wget https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/cc.en.300.bin.gz
         * !gzip -d cc.en.300.bin.gz
    4.g
+   
+   
+ ## Remainings
+ 
+ 1. Heatmap for confution matrix
+ 2. Puncuation characters in preprocessing step
+ 3. Maybe max pooling for centroids
+ 4. Comparison with simpler model
+ 5. Add 3 hidden layers for Centroids Classification
+ 

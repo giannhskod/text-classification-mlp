@@ -1,5 +1,5 @@
 import os
-import itertools
+import re
 import pandas as pd
 import numpy as np
 import nltk
@@ -17,6 +17,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 DATASET_FILENAME = 'stack-overflow-data.csv'
+DATASET_PICKLE_FILENAME = 'stack-overflow-pickle'
 EMBEDDINGS_FILENAME = 'cc.en.300.bin'
 MINIMIZED_EMBEDDINGS_FILENAME = 'minimized_embeddings'
 
@@ -101,23 +102,65 @@ def load_embeddings(input_data, text_field, minimized=False):
     return embeddings
 
 
-def load_dataset(tags_categories='__all__'):
+def preprocess_full_dataset(df):
+    df['tags'] = pd.Categorical(df.tags)
+
+    # convert text to lowercase
+    df['post'] = df['post'].str.lower()
+
+    # remove punctuation characters
+    # TODO: Find best way to remove the cases as '..' - better with a regex
+    punctuation_chars = '"$%&*+,-./:;?@[]^_`~'
+    df['post'] = df['post'].apply(lambda text: ' '.join([word.strip() for word in text.split() if word not in punctuation_chars]))
+
+    # remove numbers
+    df['post'] = df['post'].str.replace("[0-9]", " ")
+
+    # # remove stopwords
+    stop_words = stopwords.words('english')
+    df['post'] = df['post'].apply(lambda text: ' '.join([word.strip() for word in text.split() if word not in stop_words]))
+
+    # remove links
+    links_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+    df['post'] = df['post'].apply(lambda text: re.sub(links_regex, "", text))
+
+    return df
+
+
+def load_dataset(tags_categories='__all__', load_from_pickle=True):
     """
     Loads and returns the Dataset as a DataFrame.
 
     :param tags_categories: If '__all__' is given then all the dataset is parsed.
                     Otherwise a list of the class names should be passed that
                     will filter the dataset against.
+    :load_from_pickle (bool): If True then tries to load from pickle file, Otherwise it
+                              loads the initial dataset.
     :return: A DataFrame filled with the whole or a subset of the dataset loaded.
 
     """
 
+    def load_dataset_and_preprocess():
+        dataset_path = os.path.join(DATA_DIR, DATASET_FILENAME)
+        dataset_df = pd.read_csv(dataset_path)
+        return preprocess_full_dataset(dataset_df)
+
     assert tags_categories == '__all__' or isinstance(tags_categories, list)  or isinstance(tags_categories, tuple), \
         ("Argument <tags_categories> should be a type of 'list' or 'tuple' or a string with explicit value '__all__'."
          "Instead it got the value {}".format(tags_categories))
-    dataset_path = os.path.join(DATA_DIR, DATASET_FILENAME)
-    dataset_df = pd.read_csv(dataset_path)
-    dataset_df['tags'] = pd.Categorical(dataset_df.tags)
+
+    pickle_path = os.path.join(DATA_DIR, DATASET_PICKLE_FILENAME)
+    if load_from_pickle:
+        try:
+            dataset_df = pd.read_pickle(pickle_path)
+        except Exception as e:
+            logger.warning(e)
+            dataset_df = load_dataset_and_preprocess()
+            dataset_df.to_pickle(pickle_path)
+    else:
+        dataset_df = load_dataset_and_preprocess()
+        dataset_df.to_pickle(pickle_path)
+
     return dataset_df if tags_categories == '__all__' else dataset_df.loc[dataset_df['tags'].isin(tags_categories)]
 
 
@@ -147,37 +190,48 @@ def preprocess_data(input_data, label_field, text_field, input_ins='as_tf_idf', 
         }
 
     """
+    from nltk.corpus import stopwords
     assert all([label_field, text_field]), \
         "Fields <label_field>, <text_field> cannot be None or empty"
 
-    train, test = train_test_split(input_data, test_size=0.3, random_state=1596)
-
-    x_train = np.array(list(itertools.chain.from_iterable(train[[text_field]].values.astype('U').tolist())))
-    x_test = np.array(list(itertools.chain.from_iterable(test[[text_field]].values.astype('U').tolist())))
+    cv_split_full = kwargs.get('cv_split_full', 0.3)
+    cv_split_dev = kwargs.get('cv_split_dev', 0.2)
+    full_train, test = train_test_split(input_data, test_size=cv_split_full, random_state=1596, stratify=input_data[label_field])
+    train, train_dev = train_test_split(full_train, test_size=cv_split_dev, stratify=full_train[label_field])
 
     if input_ins == 'as_tf_idf':
-        vectorizer = TfidfVectorizer(ngram_range=(1, 2), max_features=5000, sublinear_tf=True,
-                                     stop_words=stopwords.words('english'))
-        x_train = vectorizer.fit_transform(x_train).toarray()
-        x_test = vectorizer.transform(x_test).toarray()
-
+        vectorizer = TfidfVectorizer(ngram_range=(1, 2), max_features=5000, sublinear_tf=True)
+        x_train = vectorizer.fit_transform(train[text_field]).toarray()
+        x_train_dev = vectorizer.transform(train_dev[text_field]).toarray()
+        x_test = vectorizer.transform(test[text_field]).toarray()
     else:
-        x_train = np.array(list(map(lambda text: text_centroid(text, embeddings), x_train)))
+        x_train = np.array(list(map(lambda text: text_centroid(text, embeddings), train[text_field])))
         x_train = np.stack(x_train, axis=0)
-        x_test = np.array(list(map(lambda text: text_centroid(text, embeddings), x_test)))
+
+        x_train_dev = np.array(list(map(lambda text: text_centroid(text, embeddings), train_dev[text_field])))
+        x_train_dev = np.stack(x_train_dev, axis=0)
+
+        x_test = np.array(list(map(lambda text: text_centroid(text, embeddings), test[text_field])))
         x_test = np.stack(x_test, axis=0)
 
     mlb = MultiLabelBinarizer()
 
     y_train = mlb.fit_transform(train[[label_field]].values.tolist())
+
+    y_train_dev = mlb.fit_transform(train_dev[[label_field]].values.tolist())
+
     y_test = mlb.transform(test[[label_field]].values.tolist())
 
     return {
         'x_train': x_train,
+        'x_train_dev': x_train_dev,
         'x_test': x_test,
         'y_train': y_train,
+        'y_train_dev': y_train_dev,
         'y_test': y_test
     }
+
+
 
 
 if __name__ == "__main__":

@@ -36,10 +36,21 @@ def plot_loss(history_obj):
     plt.show()
 
 
+def plot_accuracy(history_obj):
+    # summarize history for accurracy
+    plt.plot(history_obj.history['accuracy'])
+    plt.plot(history_obj.history['val_accuracy'])
+    plt.title('model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'dev'], loc='upper right')
+    plt.show()
+
+
 def plot_history_metrics(history_obj):
     plot_f1_score(history_obj)
 
-    plot_loss(history_obj)
+    plot_accuracy(history_obj)
 
 #------- Prediction's Visualizations -----------
 
@@ -53,7 +64,7 @@ def create_clf_report(y_true, y_pred, classes):
     """
     confusion = pd.DataFrame(confusion_matrix(y_true, y_pred),
                              index=classes,
-                             columns=['predicted_{}'.format(c) for c in classes])
+                             columns=['pre_{}'.format(c) for c in classes])
 
     print("-" * 80, end='\n')
     print("Accuracy Score: {0:.2f}%".format(accuracy_score(y_true, y_pred) * 100))

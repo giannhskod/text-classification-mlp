@@ -128,6 +128,7 @@ pip-selfcheck.json
 
 # Data Folder
 data/
-
+!data/stack-overflow-data.csv
 # Models Folder
 models/
+
