@@ -1,3 +1,0 @@
-round_epochs,val_loss,val_f1,val_accuracy,loss,f1,accuracy,visualize_proccess,first_neuron,activation,dropout,number_of_hidden_layers,shapes,epochs,batch_size,model_type
-10,1.1843426722571964,0.40260255325408206,0.9664761203811282,1.4549803388362028,0.24158642014678644,0.9602218582192246,False,128,tanh,0.4,2,funnel,10,64,keras_embeddings_centroids_model
-5,2.2381589280991325,nan,0.9510474921408154,2.55462891150494,nan,0.9502957962970344,False,128,relu,0.6,2,funnel,5,64,keras_embeddings_centroids_model
