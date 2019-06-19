@@ -11,10 +11,13 @@
 
 The project is splitted into two main parts. The one is the jupyter notebook that contains
 the models formations and initializations, it lives under the */notebooks* folder. The other
-one is lives under */app* and contains resusable code for the data preprocessing the analysis
+one lives under */app* and contains resusable code for the data preprocessing the analysis
 of the models and the visualization of their performance.
 
-## Instructions
+All the reusable data sources or execution logs lives under the 
+*/data* folder 
+
+## Setup Instructions
 
    1. Create or load an existing conda environment
    2. Install the packages from the *requiremets.txt* file
@@ -23,14 +26,8 @@ of the models and the visualization of their performance.
         #### Linux environments
         * !wget https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/cc.en.300.bin.gz
         * !gzip -d cc.en.300.bin.gz
-   4.g
+   4. Download the **stackoverflow-posts** dataset and place i under the */data* folder. [Download dataset here](https://storage.googleapis.com/tensorflow-workshop-examples/stack-overflow-data.csv)
    
-   
- ## Remainings
- 
- 1. Heatmap for confution matrix
- 2. Puncuation characters in preprocessing step
- 3. Maybe max pooling for centroids
- 4. Comparison with simpler model
- 5. Add 3 hidden layers for Centroids Classification
- 
+## Runtime Instructions
+
+   1.
