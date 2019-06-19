@@ -127,8 +127,10 @@ pip-selfcheck.json
 
 
 # Data Folder
-data/
+data/*
 !data/stack-overflow-data.csv
+
+!data/talos_logs
 # Models Folder
 models/
 
