@@ -5,12 +5,13 @@ import numpy as np
 import nltk
 import pickle
 from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MultiLabelBinarizer
+from sklearn.preprocessing import MultiLabelBinarizer, StandardScaler
 from gensim.models.wrappers import FastText
 
-from app import DATA_DIR
+from definitions import DATA_DIR
 
 import logging
 
@@ -20,6 +21,8 @@ DATASET_FILENAME = 'stack-overflow-data.csv'
 DATASET_PICKLE_FILENAME = 'stack-overflow-pickle'
 EMBEDDINGS_FILENAME = 'cc.en.300.bin'
 MINIMIZED_EMBEDDINGS_FILENAME = 'minimized_embeddings'
+
+# Data Processing methods
 
 def text_centroid(text, model):
     text_vec = []
@@ -40,6 +43,37 @@ def text_centroid(text, model):
     return np.asarray(text_vec) / counter
 
 
+def preprocess_full_dataset(df):
+    df['tags'] = pd.Categorical(df.tags)
+
+    # convert text to lowercase
+    df['post'] = df['post'].str.lower()
+
+    # remove punctuation characters
+    # TODO: Find best way to remove the cases as '..' - better with a regex
+    punctuation_chars = '"$%&*+,-./:;?@[]^_`~'
+    df['post'] = (df['post'].apply(lambda text: ' '.join([word.strip() for word in text.split()
+                                                          if word not in punctuation_chars])))
+
+    # remove numbers
+    df['post'] = df['post'].str.replace("[0-9]", " ")
+
+    # # # remove stopwords
+    stop_words = stopwords.words('english')
+    df['post'] = (df['post'].apply(lambda text: ' '.join([word.strip() for word in text.split()
+                                                          if word not in stop_words])))
+
+    # remove links
+    links_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+    df['post'] = df['post'].apply(lambda text: re.sub(links_regex, "", text))
+
+    # Apply Stemmer
+    stemmer = PorterStemmer()
+    df['post'] = df['post'].apply(lambda text: ' '.join([stemmer.stem(word.strip()) for word in text.split()]))
+    return df
+
+
+# Loading & Saving Data Methods
 def minimize_embeddings(input_data, emb_model, text_field, save=True):
     """
     Finds the embeddings of the words that exist in the <input_data>. If <save> is enabled
@@ -100,31 +134,6 @@ def load_embeddings(input_data, text_field, minimized=False):
         embeddings = load_embeddings()
 
     return embeddings
-
-
-def preprocess_full_dataset(df):
-    df['tags'] = pd.Categorical(df.tags)
-
-    # convert text to lowercase
-    df['post'] = df['post'].str.lower()
-
-    # remove punctuation characters
-    # TODO: Find best way to remove the cases as '..' - better with a regex
-    punctuation_chars = '"$%&*+,-./:;?@[]^_`~'
-    df['post'] = df['post'].apply(lambda text: ' '.join([word.strip() for word in text.split() if word not in punctuation_chars]))
-
-    # remove numbers
-    df['post'] = df['post'].str.replace("[0-9]", " ")
-
-    # # remove stopwords
-    stop_words = stopwords.words('english')
-    df['post'] = df['post'].apply(lambda text: ' '.join([word.strip() for word in text.split() if word not in stop_words]))
-
-    # remove links
-    links_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
-    df['post'] = df['post'].apply(lambda text: re.sub(links_regex, "", text))
-
-    return df
 
 
 def load_dataset(tags_categories='__all__', load_from_pickle=True):
@@ -196,6 +205,8 @@ def preprocess_data(input_data, label_field, text_field, input_ins='as_tf_idf', 
 
     cv_split_full = kwargs.get('cv_split_full', 0.3)
     cv_split_dev = kwargs.get('cv_split_dev', 0.2)
+    standardize = kwargs.get('standardize', False)
+
     full_train, test = train_test_split(input_data, test_size=cv_split_full, random_state=1596, stratify=input_data[label_field])
     train, train_dev = train_test_split(full_train, test_size=cv_split_dev, stratify=full_train[label_field])
 
@@ -213,6 +224,13 @@ def preprocess_data(input_data, label_field, text_field, input_ins='as_tf_idf', 
 
         x_test = np.array(list(map(lambda text: text_centroid(text, embeddings), test[text_field])))
         x_test = np.stack(x_test, axis=0)
+
+    # Extra preprocessing in transformed data
+    if standardize:
+        scaler = StandardScaler()
+        x_train = scaler.fit_transform(x_train)
+        x_train_dev = scaler.fit_transform(x_train_dev)
+
 
     mlb = MultiLabelBinarizer()
 

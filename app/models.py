@@ -1,5 +1,9 @@
+from collections import Iterable
+
 from keras.callbacks import ModelCheckpoint
 from keras_tqdm import TQDMNotebookCallback
+from talos.model import hidden_layers
+from talos import Reporting
 
 from app.metrics import f1, accuracy
 
@@ -13,6 +17,26 @@ def load_model(x_train, y_train, x_train_dev, y_train_dev, kwargs):
     :param kwargs:
     :return:
     """
+
+    def generate_hidden_layers(model_nn, n_labels, **kwargs):
+        """
+        In order to create hidden layer for the constructed model, the kwargs
+        parameters must contain the keys:
+        1) 'number_of_hidden_layers' : Describes the number of the layers that will be generated
+        2) 'first_neuron': Describes the number of nodes of the model's first layer
+        3) 'dropout':  Describe the portion of the set that will be dropouted after each Layer
+        The minimum value of nodes that can be applied to a hidden layer is n_classses.
+
+        """
+        hidden_layers = kwargs.get('number_of_hidden_layers')
+        if hidden_layers:
+            for h_layer in range(1, hidden_layers + 1):
+                nodes = kwargs.get('first_neuron') / (2 * h_layer)
+                nodes = int(nodes if nodes > n_labels else n_labels)
+                model_nn.add(Dense(nodes, activation=kwargs.get('activation', 'relu')))
+                model_nn.add(Dropout(kwargs.get('dropout', 0.5)))
+        return  model_nn
+
     from keras.models import Sequential
     from keras.layers import Dropout, Dense
     from talos.model import early_stopper
@@ -27,13 +51,10 @@ def load_model(x_train, y_train, x_train_dev, y_train_dev, kwargs):
     # Dropout probability in order to avoid overfitting.
     model.add(Dropout(kwargs.get('dropout', 0.5)))
 
-    #1st Hidden Layer
-    default_hidden_layer_units = kwargs.get('first_neuron', 2) / 2
-    model.add(Dense(units=kwargs.get('first_hidden_layer', default_hidden_layer_units),
-                    activation=kwargs.get('activation', 'relu')))
-    model.add(Dropout(kwargs.get('dropout', 0.5)))
+    # Apply hidden layers
+    model = generate_hidden_layers(model, n_labels, **kwargs)
 
-    # 2nd & last Hidden layer
+    # last Hidden layer
     # Mutual exclusive Classes
     model.add(Dense(n_labels, activation='softmax'))
 
@@ -70,3 +91,33 @@ def load_model(x_train, y_train, x_train_dev, y_train_dev, kwargs):
                         shuffle=True)
 
     return history, model
+
+
+def find_best_model_over_scan_logs(metric_weight='val_f1', *filepaths):
+    """
+    Finds the best model against multiple Talos scanned configurations.
+    The scan configuration that has the maximum <metric_weight> is
+    the one that is described as the best.
+    :param metric_weight: It describes the evaluation metric that will be user
+                          as a qualifier for the best model.
+    :param filepaths: An iterable that will contains the correct filepaths of the
+                      saved Talos configurations
+    :return (dict): A dictionary with the best model configuration.
+    """
+    assert metric_weight is not None, "Argument <metric_weight> can not be None."
+    assert isinstance(filepaths, Iterable), "Argument <filepaths> must be iterable "
+    for file_no, path in enumerate(filepaths):
+        if file_no == 0:
+            config_pd = Reporting(path).data
+
+        else:
+            config_pd.update(Reporting(path).data)
+
+    best_model_idx = config_pd[metric_weight].idxmax()
+    best_model = config_pd.loc[best_model_idx].to_dict()
+
+    for key, value in best_model.items():
+        if isinstance(value, float) and value >= 1:
+            best_model[key] = int(value)
+
+    return best_model

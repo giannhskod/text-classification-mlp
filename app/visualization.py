@@ -1,7 +1,8 @@
+import itertools
+
 import numpy as np
 import matplotlib
 import matplotlib.pylab as plt
-import pandas as pd
 from sklearn.metrics import (roc_auc_score,
                              roc_curve,
                              auc,
@@ -54,6 +55,37 @@ def plot_history_metrics(history_obj):
 
 #------- Prediction's Visualizations -----------
 
+# This utility function is from the sklearn docs: http://scikit-learn.org/stable/auto_examples/model_selection/plot_confusion_matrix.html
+def plot_confusion_matrix(y_true, y_pred, classes,
+                          title='Confusion matrix',
+                          cmap=plt.cm.Blues,
+                          figsize=(24,20)):
+    """
+    This function prints and plots the confusion matrix.
+    Normalization can be applied by setting `normalize=True`.
+    """
+    cm = confusion_matrix(y_true, y_pred)
+    cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+
+    plt.figure(figsize=figsize)
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title, fontsize=30)
+    plt.colorbar()
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45, fontsize=22)
+    plt.yticks(tick_marks, classes, fontsize=22)
+
+    fmt = '.2f'
+    thresh = cm.max() / 2.
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, format(cm[i, j], fmt),
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
+    plt.ylabel('True label', fontsize=25)
+    plt.xlabel('Predicted label', fontsize=25)
+
+
 def create_clf_report(y_true, y_pred, classes):
     """
     This function calculates several metrics about a classifier and creates a mini report.
@@ -62,22 +94,14 @@ def create_clf_report(y_true, y_pred, classes):
     :param classes: iterable. An iterable of string or ints.
     :return: dataframe. A pandas dataframe with the confusion matrix.
     """
-    confusion = pd.DataFrame(confusion_matrix(y_true, y_pred),
-                             index=classes,
-                             columns=['pre_{}'.format(c) for c in classes])
 
     print("-" * 80, end='\n')
     print("Accuracy Score: {0:.2f}%".format(accuracy_score(y_true, y_pred) * 100))
     print("-" * 80)
 
-    print("Confusion Matrix:", end='\n\n')
-    print(confusion)
-
     print("-" * 80, end='\n')
     print("Classification Report:", end='\n\n')
     print(classification_report(y_true, y_pred, digits=3), end='\n')
-
-    return confusion
 
 
 def plot_roc_curve(y_true, y_pred_scores, nclasses, pos_label=1):
