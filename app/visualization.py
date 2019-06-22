@@ -40,7 +40,7 @@ def plot_loss(history_obj):
 def plot_accuracy(history_obj, accuracy_metric='categorical_accuracy'):
     # summarize history for accuracy metrics
     plt.plot(history_obj.history[accuracy_metric])
-    plt.plot(history_obj.history['val_'.format(accuracy_metric)])
+    plt.plot(history_obj.history['val_{}'.format(accuracy_metric)])
     plt.title('model {}'.format(accuracy_metric))
     plt.ylabel(accuracy_metric)
     plt.xlabel('epoch')
