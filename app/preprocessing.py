@@ -20,7 +20,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 DATASET_FILENAME = 'stack-overflow-data.csv'
-DATASET_PICKLE_FILENAME = 'stack-overflow-pickle'
+DATASET_PICKLE_FILENAME_TF = 'stack-overflow-pickle-tf'
+DATASET_PICKLE_FILENAME_FTC = 'stack-overflow-pickle-ftc'
 EMBEDDINGS_FILENAME = 'cc.en.300.bin'
 MINIMIZED_EMBEDDINGS_FILENAME = 'minimized_embeddings'
 
@@ -45,7 +46,14 @@ def text_centroid(text, model):
     return np.asarray(text_vec) / counter
 
 
-def preprocess_full_dataset(df):
+def preprocess_full_dataset(df, input_ins='as_tf_idf'):
+    """
+    The data preprocessing of the full dataset. The only extra preprocessing that is implemented
+    to the dataset in case of the *tf_idf* model is the *stemming* of each word
+    :param df (pandas.DataFrame):  The dataframe of the loaded Dataset
+    :param input_ins:
+    :return:
+    """
     df['tags'] = pd.Categorical(df.tags)
 
     # convert text to lowercase
@@ -53,7 +61,9 @@ def preprocess_full_dataset(df):
 
     # remove punctuation characters
     # TODO: Find best way to remove the cases as '..' - better with a regex
-    df['post'] = (df['post'].apply(lambda text: ' '.join([word.strip(string.punctuation) for word in text.split() ])))
+    punc_reqex = r'[!,.:;-](?= |$)'
+    df['post'] = df['post'].apply(lambda text: re.sub(punc_reqex ,r'', text))
+    # df['post'] = (df['post'].apply(lambda text: ' '.join([word.strip(string.punctuation) for word in text.split() ])))
 
     # remove numbers
     df['post'] = df['post'].str.replace("[0-9]", " ")
@@ -67,9 +77,13 @@ def preprocess_full_dataset(df):
     links_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
     df['post'] = df['post'].apply(lambda text: re.sub(links_regex, "", text))
 
-    # # Apply Stemmer
-    # stemmer = PorterStemmer()
-    # df['post'] = df['post'].apply(lambda text: ' '.join([stemmer.stem(word.strip()) for word in text.split()]))
+    # Extra preprocesing for the TF - IDF
+    if input_ins == 'as_tf_idf':
+        # Apply Stemmer
+        stemmer = PorterStemmer()
+        lambda_exrp = lambda text: ' '.join([stemmer.stem(word.strip()) for word in text.split()])
+        df['post'] = df['post'].apply(lambda_exrp)
+
     return df
 
 
@@ -135,15 +149,17 @@ def load_embeddings(input_data, text_field, minimized=False):
     return embeddings
 
 
-def load_dataset(tags_categories='__all__', load_from_pickle=True):
+def load_dataset(tags_categories='__all__', load_from_pickle=True, input_ins='as_tf_idf'):
     """
-    Loads and returns the Dataset as a DataFrame.
+    Loads and returns the Dataset as a DataFrame. The returned Dataframe will be proccesed.
 
     :param tags_categories: If '__all__' is given then all the dataset is parsed.
                     Otherwise a list of the class names should be passed that
                     will filter the dataset against.
     :load_from_pickle (bool): If True then tries to load from pickle file, Otherwise it
                               loads the initial dataset.
+    :input_ins (str): If 'as_tf_idf' is given then it generates tf-idf vectors per text row
+                      If 'as_centroids' is given then it generates centroids per text row
     :return: A DataFrame filled with the whole or a subset of the dataset loaded.
 
     """
@@ -151,13 +167,17 @@ def load_dataset(tags_categories='__all__', load_from_pickle=True):
     def load_dataset_and_preprocess():
         dataset_path = os.path.join(DATA_DIR, DATASET_FILENAME)
         dataset_df = pd.read_csv(dataset_path)
-        return preprocess_full_dataset(dataset_df)
+        return preprocess_full_dataset(dataset_df, input_ins)
 
     assert tags_categories == '__all__' or isinstance(tags_categories, list)  or isinstance(tags_categories, tuple), \
         ("Argument <tags_categories> should be a type of 'list' or 'tuple' or a string with explicit value '__all__'."
          "Instead it got the value {}".format(tags_categories))
 
-    pickle_path = os.path.join(DATA_DIR, DATASET_PICKLE_FILENAME)
+    if input_ins == 'as_tf_idf':
+        pickle_path = os.path.join(DATA_DIR, DATASET_PICKLE_FILENAME_TF)
+    else:
+        pickle_path = os.path.join(DATA_DIR, DATASET_PICKLE_FILENAME_FTC)
+
     if load_from_pickle:
         try:
             dataset_df = pd.read_pickle(pickle_path)
@@ -199,13 +219,6 @@ def preprocess_data(input_data, label_field, text_field, input_ins='as_tf_idf', 
         }
 
     """
-    def extra_preprocessing_for_tf_idf():
-        # Apply Stemmer
-        stemmer = PorterStemmer()
-        lambda_exrp = lambda text: ' '.join([stemmer.stem(word.strip()) for word in text.split()])
-        input_data[text_field] = input_data[text_field].apply(lambda_exrp)
-        return input_data
-
     assert all([label_field, text_field]), \
         "Fields <label_field>, <text_field> cannot be None or empty"
 
@@ -213,8 +226,6 @@ def preprocess_data(input_data, label_field, text_field, input_ins='as_tf_idf', 
     cv_split_dev = kwargs.get('cv_split_dev', 0.2)
     standardize = kwargs.get('standardize', False)
 
-    if input_ins == 'as_tf_idf':
-        input_data = extra_preprocessing_for_tf_idf()
 
     full_train, test = train_test_split(input_data,
                                         test_size=cv_split_full,

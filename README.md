@@ -1,11 +1,10 @@
 # Assignment 3
 
 ## Participants
-1.
-2.
-3.
-4.
-
+ - Karakolis Evangelos (P3351803)
+ - Kontogeorgos Ioannis (P3351807)
+ - Markopoulos Ioannis (P3351809)
+ - Roumeliotis Anargyros (P3351817)
 
 ## Description
 This project aims to create an MLP model that classifies the best stackoverflow's posts into the relevant programming languages. For the purpose of this project, we used an already formatted and structured dataset of *posts* and *tags* generated from Google's BigQuery.
@@ -18,7 +17,7 @@ The project has been split into three sections(notebooks).
    
    3. The *third* finds the **best** tuned model parameter combination of the above 4 models and trains a MLP neural model with it.
    
-   Each section contains a partition where it evaluates and visualizes the prediction performance of the best configured MLP model using the relevant metrics as *f1*, *accuracy*, *loss* or visualizations as *confusion matrix* , *Classification Report*
+   Each section contains a partition where it evaluates and visualizes the prediction performance of the best configured MLP model using the relevant metrics as *f1*, *accuracy*,  and visualizations as *Confusion Matrix* , *Classification Report*
 
 ## Project Structure
 
@@ -34,7 +33,7 @@ The project is structured with the below formation:
        
        - *metrics.py* module, which contains the code for the MLP models compilation metrics as *f1* , *accuracy*. etc
        
-       - *visualization.py* module, which contains resuable code for the models performance visualization.
+       - *visualization.py* module, which contains reusable code for the models performance visualization.
        
  3. Folder **data**, which contains all the reusable data sources or execution logs. It is worth to mention that the *talos* configuration lives under the subfolder *talos_logs*.
  
@@ -55,17 +54,19 @@ The project is structured with the below formation:
    3. Download the vocabulary that will be used in the project and place it under the */data* folder [Download here](https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/cc.en.300.bin.gz)
         
         #### Linux environments
-        * !wget https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/cc.en.300.bin.gz
-        * !gzip -d cc.en.300.bin.gz
+        * `$>wget https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/cc.en.300.bin.gz`
+        * `$>gzip -d cc.en.300.bin.gz`
    4. Download the **stackoverflow-posts** dataset and place i under the */data* folder. [Download dataset here](https://storage.googleapis.com/tensorflow-workshop-examples/stack-overflow-data.csv)
  
 ## Runtime Instructions
 
-   1. For the text classification models using **TF-IDF vectors** use the *keras_mlp_stackoverflow_posts_tf.ipyb* notebook. When the cell parameters tuning is ready for both models (with and without standardization) then 2 **Talos** log file will have been generated under the *data/talos_logs/* folder.
+   1. For the text classification models using **TF-IDF vectors** use the *keras_mlp_stackoverflow_posts_tf.ipyb* notebook. When the cell parameters tuning is ready for both models (with and without standardization) then 2 **Talos** log files will have been generated under the *data/talos_logs/* folder.
    
-   2. For the text classification models using **Centroids of word Embeddings** use the *keras_mlp_stackoverflow_posts_ftc.ipyb* notebook. When the cell parameters tuning is ready for both models (with and without standardization) then 2 **Talos** log file will have been generated under the *data/talos_logs/* folder.
+   2. For the text classification models using **Centroids of word Embeddings** use the *keras_mlp_stackoverflow_posts_ftc.ipyb* notebook. When the cell parameters tuning is ready for both models (with and without standardization) then 2 **Talos** log files will have been generated under the *data/talos_logs/* folder.
     
         **Caution**: Due to the great amount of memory usage of that implementation,
          it is suggested to clear all the other open kernels from other notebooks.
    
-   3. After step 1 & 2 you get the best MLP Neural Network of the and it's prediction performance using the *keras_mlp_stackoverflow_posts_best_model.ipynb* notebook. At the end of this notebook there is a comparison between the generated **MLP NN** model and a simple **SVC** model classifier in order to check whether the usage of an Neural Network was required for our classification problem.  
+   3. After step 1 & 2 you get the best MLP Neural Network of the and it's prediction performance using the *keras_mlp_stackoverflow_posts_best_model.ipynb* notebook. At the end of this notebook there is a comparison between the generated **MLP NN** model and a simple **Naive Bayes** model classifier in order to check whether the usage of an Neural Network was required for our classification problem.
+   
+   * *Impo*  
