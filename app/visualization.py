@@ -37,21 +37,21 @@ def plot_loss(history_obj):
     plt.show()
 
 
-def plot_accuracy(history_obj):
-    # summarize history for accurracy
-    plt.plot(history_obj.history['accuracy'])
-    plt.plot(history_obj.history['val_accuracy'])
-    plt.title('model accuracy')
-    plt.ylabel('accuracy')
+def plot_accuracy(history_obj, accuracy_metric='categorical_accuracy'):
+    # summarize history for accuracy metrics
+    plt.plot(history_obj.history[accuracy_metric])
+    plt.plot(history_obj.history['val_'.format(accuracy_metric)])
+    plt.title('model {}'.format(accuracy_metric))
+    plt.ylabel(accuracy_metric)
     plt.xlabel('epoch')
     plt.legend(['train', 'dev'], loc='upper right')
     plt.show()
 
 
-def plot_history_metrics(history_obj):
+def plot_history_metrics(history_obj, accuracy_metric='categorical_accuracy'):
     plot_f1_score(history_obj)
 
-    plot_accuracy(history_obj)
+    plot_accuracy(history_obj, accuracy_metric)
 
 #------- Prediction's Visualizations -----------
 

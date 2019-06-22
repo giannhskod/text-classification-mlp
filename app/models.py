@@ -80,7 +80,7 @@ def load_model(x_train, y_train, x_train_dev, y_train_dev, kwargs):
     # Model compilation parameterized with
     model.compile(loss='categorical_crossentropy',
                   optimizer=kwargs.get('optimizer', 'Adam'),
-                  metrics=[f1, accuracy])
+                  metrics=[f1, 'categorical_accuracy'])
 
     history = model.fit(x_train,y_train,
                         batch_size=kwargs.get('batch_size', 32),

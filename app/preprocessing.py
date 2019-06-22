@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 import nltk
 import pickle
+
+import string
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -51,9 +53,7 @@ def preprocess_full_dataset(df):
 
     # remove punctuation characters
     # TODO: Find best way to remove the cases as '..' - better with a regex
-    punctuation_chars = '"$%&*+,-./:;?@[]^_`~'
-    df['post'] = (df['post'].apply(lambda text: ' '.join([word.strip() for word in text.split()
-                                                          if word not in punctuation_chars])))
+    df['post'] = (df['post'].apply(lambda text: ' '.join([word.strip(string.punctuation) for word in text.split() ])))
 
     # remove numbers
     df['post'] = df['post'].str.replace("[0-9]", " ")
@@ -67,9 +67,9 @@ def preprocess_full_dataset(df):
     links_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
     df['post'] = df['post'].apply(lambda text: re.sub(links_regex, "", text))
 
-    # Apply Stemmer
-    stemmer = PorterStemmer()
-    df['post'] = df['post'].apply(lambda text: ' '.join([stemmer.stem(word.strip()) for word in text.split()]))
+    # # Apply Stemmer
+    # stemmer = PorterStemmer()
+    # df['post'] = df['post'].apply(lambda text: ' '.join([stemmer.stem(word.strip()) for word in text.split()]))
     return df
 
 
@@ -121,7 +121,6 @@ def load_embeddings(input_data, text_field, minimized=False):
 
     if minimized:
         try:
-
             minimized_path = os.path.join(DATA_DIR, MINIMIZED_EMBEDDINGS_FILENAME)
             with open(minimized_path, 'rb') as minimized_pickle:
                 embeddings = pickle.load(minimized_pickle)
@@ -173,6 +172,7 @@ def load_dataset(tags_categories='__all__', load_from_pickle=True):
     return dataset_df if tags_categories == '__all__' else dataset_df.loc[dataset_df['tags'].isin(tags_categories)]
 
 
+
 def preprocess_data(input_data, label_field, text_field, input_ins='as_tf_idf', embeddings=None, **kwargs):
     """
     Generates the train-test data for the model based on the given arguments.
@@ -199,7 +199,13 @@ def preprocess_data(input_data, label_field, text_field, input_ins='as_tf_idf', 
         }
 
     """
-    from nltk.corpus import stopwords
+    def extra_preprocessing_for_tf_idf():
+        # Apply Stemmer
+        stemmer = PorterStemmer()
+        lambda_exrp = lambda text: ' '.join([stemmer.stem(word.strip()) for word in text.split()])
+        input_data[text_field] = input_data[text_field].apply(lambda_exrp)
+        return input_data
+
     assert all([label_field, text_field]), \
         "Fields <label_field>, <text_field> cannot be None or empty"
 
@@ -207,14 +213,26 @@ def preprocess_data(input_data, label_field, text_field, input_ins='as_tf_idf', 
     cv_split_dev = kwargs.get('cv_split_dev', 0.2)
     standardize = kwargs.get('standardize', False)
 
-    full_train, test = train_test_split(input_data, test_size=cv_split_full, random_state=1596, stratify=input_data[label_field])
-    train, train_dev = train_test_split(full_train, test_size=cv_split_dev, stratify=full_train[label_field])
+    if input_ins == 'as_tf_idf':
+        input_data = extra_preprocessing_for_tf_idf()
+
+    full_train, test = train_test_split(input_data,
+                                        test_size=cv_split_full,
+                                        random_state=1596,
+                                        stratify=input_data[label_field])
+    train, train_dev = train_test_split(full_train,
+                                        test_size=cv_split_dev,
+                                        random_state=1596,
+                                        stratify=full_train[label_field])
 
     if input_ins == 'as_tf_idf':
-        vectorizer = TfidfVectorizer(ngram_range=(1, 2), max_features=5000, sublinear_tf=True)
-        x_train = vectorizer.fit_transform(train[text_field]).toarray()
+        vectorizer = TfidfVectorizer(ngram_range=(1, 2),
+                                     max_features=5000,
+                                     sublinear_tf=True).fit(train[text_field])
+        x_train = vectorizer.transform(train[text_field]).toarray()
         x_train_dev = vectorizer.transform(train_dev[text_field]).toarray()
         x_test = vectorizer.transform(test[text_field]).toarray()
+
     else:
         x_train = np.array(list(map(lambda text: text_centroid(text, embeddings), train[text_field])))
         x_train = np.stack(x_train, axis=0)
@@ -227,16 +245,17 @@ def preprocess_data(input_data, label_field, text_field, input_ins='as_tf_idf', 
 
     # Extra preprocessing in transformed data
     if standardize:
-        scaler = StandardScaler()
-        x_train = scaler.fit_transform(x_train)
-        x_train_dev = scaler.fit_transform(x_train_dev)
+        scaler = StandardScaler().fit(x_train)
+        x_train = scaler.transform(x_train)
+        x_train_dev = scaler.transform(x_train_dev)
+        x_test = scaler.transform(x_test)
 
 
     mlb = MultiLabelBinarizer()
 
     y_train = mlb.fit_transform(train[[label_field]].values.tolist())
 
-    y_train_dev = mlb.fit_transform(train_dev[[label_field]].values.tolist())
+    y_train_dev = mlb.transform(train_dev[[label_field]].values.tolist())
 
     y_test = mlb.transform(test[[label_field]].values.tolist())
 
@@ -248,8 +267,6 @@ def preprocess_data(input_data, label_field, text_field, input_ins='as_tf_idf', 
         'y_train_dev': y_train_dev,
         'y_test': y_test
     }
-
-
 
 
 if __name__ == "__main__":
