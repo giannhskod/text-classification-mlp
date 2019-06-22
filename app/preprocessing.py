@@ -59,12 +59,6 @@ def preprocess_full_dataset(df, input_ins='as_tf_idf'):
     # convert text to lowercase
     df['post'] = df['post'].str.lower()
 
-    # remove punctuation characters
-    # TODO: Find best way to remove the cases as '..' - better with a regex
-    punc_reqex = r'[!,.:;-](?= |$)'
-    df['post'] = df['post'].apply(lambda text: re.sub(punc_reqex ,r'', text))
-    # df['post'] = (df['post'].apply(lambda text: ' '.join([word.strip(string.punctuation) for word in text.split() ])))
-
     # remove numbers
     df['post'] = df['post'].str.replace("[0-9]", " ")
 
@@ -76,6 +70,11 @@ def preprocess_full_dataset(df, input_ins='as_tf_idf'):
     # remove links
     links_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
     df['post'] = df['post'].apply(lambda text: re.sub(links_regex, "", text))
+
+    # remove punctuation characters
+    # TODO: Find best way to remove the cases as '..' - better with a regex
+    punc_reqex = '[!,.:;-](?= |$)'
+    df['post'] = df['post'].apply(lambda text: re.sub(punc_reqex, r'', text))
 
     # Extra preprocesing for the TF - IDF
     if input_ins == 'as_tf_idf':
