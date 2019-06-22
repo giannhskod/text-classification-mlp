@@ -1,5 +1,5 @@
+import pandas as pd
 from collections import Iterable
-
 from keras.callbacks import ModelCheckpoint
 from keras_tqdm import TQDMNotebookCallback
 from talos.model import hidden_layers
@@ -106,12 +106,10 @@ def find_best_model_over_scan_logs(metric_weight='val_f1', *filepaths):
     """
     assert metric_weight is not None, "Argument <metric_weight> can not be None."
     assert isinstance(filepaths, Iterable), "Argument <filepaths> must be iterable "
-    for file_no, path in enumerate(filepaths):
-        if file_no == 0:
-            config_pd = Reporting(path).data
 
-        else:
-            config_pd.update(Reporting(path).data)
+    # Cre
+    config_pd = pd.concat(map(lambda file: Reporting(file).data, filepaths))
+    config_pd.index = range(config_pd.shape[0])
 
     best_model_idx = config_pd[metric_weight].idxmax()
     best_model = config_pd.loc[best_model_idx].to_dict()

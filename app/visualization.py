@@ -72,7 +72,7 @@ def plot_confusion_matrix(y_true, y_pred, classes,
     plt.title(title, fontsize=30)
     plt.colorbar()
     tick_marks = np.arange(len(classes))
-    plt.xticks(tick_marks, classes, rotation=45, fontsize=22)
+    plt.xticks(tick_marks, classes, rotation=90, fontsize=22)
     plt.yticks(tick_marks, classes, fontsize=22)
 
     fmt = '.2f'
