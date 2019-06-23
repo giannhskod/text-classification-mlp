@@ -1,2 +1,0 @@
-round_epochs,val_loss,val_f1,val_categorical_accuracy,loss,f1,categorical_accuracy,visualize_proccess,first_neuron,activation,dropout,number_of_hidden_layers,shapes,epochs,batch_size,model_type
-30,0.9068115501403808,0.5913801288604736,0.715,0.722241087777274,0.5801317994935172,0.7576785714285714,False,512,tanh,0.2,2,funnel,30,64,keras_sdr_embeddings_centroids_model

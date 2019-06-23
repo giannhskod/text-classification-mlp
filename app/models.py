@@ -1,21 +1,22 @@
-import pandas as pd
 from collections import Iterable
-from keras.callbacks import ModelCheckpoint
-from keras_tqdm import TQDMNotebookCallback
-from talos.model import hidden_layers
-from talos import Reporting
 
-from app.metrics import f1, accuracy
+import pandas as pd
+from keras.callbacks import ModelCheckpoint, EarlyStopping
+from keras.layers import Dense, Dropout
+from keras.models import Sequential
+from keras_tqdm import TQDMNotebookCallback
+from talos import Reporting
+from talos.model import early_stopper
+
+from app.metrics import f1
+
 
 def load_model(x_train, y_train, x_train_dev, y_train_dev, kwargs):
     """
-
-    :param x_train:
-    :param y_train:
-    :param x_train_dev:
-    :param y_train_dev:
-    :param kwargs:
-    :return:
+    The callback method that will be used from the Talos API in order to
+    generate a configurable Keras  MLP model.
+    :return (tuple): A tuple with the history object of the model train and the ,
+                     generated Keras model itself.
     """
 
     def generate_hidden_layers(model_nn, n_labels, **kwargs):
@@ -37,12 +38,10 @@ def load_model(x_train, y_train, x_train_dev, y_train_dev, kwargs):
                 model_nn.add(Dropout(kwargs.get('dropout', 0.5)))
         return  model_nn
 
-    from keras.models import Sequential
-    from keras.layers import Dropout, Dense
-    from talos.model import early_stopper
-
     n_labels = y_train.shape[1]
     visualize_process = kwargs.get('visualize_process', False)
+    with_early_stoping = kwargs.get('early_stopping', True)
+
     model = Sequential()
     model.add(Dense(units=kwargs.get('first_neuron', 2),
                     input_dim=x_train.shape[1],
@@ -58,7 +57,19 @@ def load_model(x_train, y_train, x_train_dev, y_train_dev, kwargs):
     # Mutual exclusive Classes
     model.add(Dense(n_labels, activation='softmax'))
 
-    default_callbacks = [early_stopper(kwargs['epochs'], mode='strict', monitor='val_f1')]
+    # Apply default Callback methods
+    if with_early_stoping:
+        stopper = EarlyStopping(monitor=kwargs.get('early_stopping_config__monitor', 'val_f1'),
+                                min_delta=kwargs.get('early_stopping_config__min_delta', 0),
+                                patience=kwargs.get('early_stopping_config__patience', 5),
+                                mode=kwargs.get('early_stopping_config__mode', 'auto'),
+
+                                )
+        default_callbacks = [stopper]
+    else:
+        default_callbacks = []
+
+    # Apply extra monitoring Callback methods
     if visualize_process:
         print(model.summary())
         checkpoint = ModelCheckpoint(kwargs.get('model_type', 'keras_tf_idf_model'),
@@ -98,10 +109,12 @@ def find_best_model_over_scan_logs(metric_weight='val_f1', *filepaths):
     Finds the best model against multiple Talos scanned configurations.
     The scan configuration that has the maximum <metric_weight> is
     the one that is described as the best.
+
     :param metric_weight: It describes the evaluation metric that will be user
                           as a qualifier for the best model.
     :param filepaths: An iterable that will contains the correct filepaths of the
                       saved Talos configurations
+
     :return (dict): A dictionary with the best model configuration.
     """
     assert metric_weight is not None, "Argument <metric_weight> can not be None."
@@ -117,5 +130,6 @@ def find_best_model_over_scan_logs(metric_weight='val_f1', *filepaths):
     for key, value in best_model.items():
         if isinstance(value, float) and value >= 1:
             best_model[key] = int(value)
-
+        elif value == 'False' or value == 'True':
+            best_model[key] = value == 'True'
     return best_model
