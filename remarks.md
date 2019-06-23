@@ -6,3 +6,4 @@
 * Screenshot of Naive Bayes perfornamce 
 * PLot the best params of the NB model which aplha has the best value
  
+ * Plot a run for TF-IDF with more of 30 epochs.

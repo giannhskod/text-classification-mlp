@@ -42,7 +42,7 @@ def load_model(x_train, y_train, x_train_dev, y_train_dev, kwargs):
     from talos.model import early_stopper
 
     n_labels = y_train.shape[1]
-    visualize_process = kwargs.get('visualize_process')
+    visualize_process = kwargs.get('visualize_process', False)
     model = Sequential()
     model.add(Dense(units=kwargs.get('first_neuron', 2),
                     input_dim=x_train.shape[1],
@@ -58,7 +58,7 @@ def load_model(x_train, y_train, x_train_dev, y_train_dev, kwargs):
     # Mutual exclusive Classes
     model.add(Dense(n_labels, activation='softmax'))
 
-    default_callbacks = [early_stopper(kwargs['epochs'], mode='moderate', monitor='val_fmeasure')]
+    default_callbacks = [early_stopper(kwargs['epochs'], mode='strict', monitor='val_f1')]
     if visualize_process:
         print(model.summary())
         checkpoint = ModelCheckpoint(kwargs.get('model_type', 'keras_tf_idf_model'),
