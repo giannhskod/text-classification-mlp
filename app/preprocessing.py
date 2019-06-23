@@ -72,7 +72,6 @@ def preprocess_full_dataset(df, input_ins='as_tf_idf'):
     df['post'] = df['post'].apply(lambda text: re.sub(links_regex, "", text))
 
     # remove punctuation characters
-    # TODO: Find best way to remove the cases as '..' - better with a regex
     punc_reqex = '[!,.:;-](?= |$)'
     df['post'] = df['post'].apply(lambda text: re.sub(punc_reqex, r'', text))
 
