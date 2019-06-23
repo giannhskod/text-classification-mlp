@@ -67,6 +67,6 @@ The project is structured with the below formation:
         **Caution**: Due to the great amount of memory usage of that implementation,
          it is suggested to clear all the other open kernels from other notebooks.
    
-   3. After step 1 & 2 you get the best MLP Neural Network of the and it's prediction performance using the *keras_mlp_stackoverflow_posts_best_model.ipynb* notebook. At the end of this notebook there is a comparison between the generated **MLP NN** model and a simple **Naive Bayes** model classifier in order to check whether the usage of an Neural Network was required for our classification problem.
+   3. After step 1 & 2 you get the best MLP Neural Network among all the registered combinations using the *keras_mlp_stackoverflow_posts_best_model.ipynb* notebook. It trains an MLP *Keras model* with the best loaded *Talos parameters* and visualizes it's performance at the test prediction. At the end of this notebook there is a comparison between the generated **MLP NN** model and a simple **Naive Bayes** model classifier in order to check whether the usage of an Neural Network was required for our classification problem.
    
    * *Important Note*: If you want to avoid the step 1 and 2 then you run step 3 individually as long as there are the relevant *talos_logs* into the */data* folder. 
